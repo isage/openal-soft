@@ -105,6 +105,9 @@ static struct BackendInfo BackendList[] = {
 #ifdef HAVE_SDL2
     { "sdl2", ALCsdl2BackendFactory_getFactory },
 #endif
+#ifdef HAVE_VITA
+    { "vita", ALCvitaBackendFactory_getFactory },
+#endif
 
     { "null", ALCnullBackendFactory_getFactory },
 #ifdef HAVE_WAVE

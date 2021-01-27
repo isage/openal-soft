@@ -83,6 +83,9 @@
 /* Define if we have the SDL2 backend */
 #cmakedefine HAVE_SDL2
 
+/* Define if we have the PS Vita backend */
+#cmakedefine HAVE_VITA
+
 /* Define if we have the stat function */
 #cmakedefine HAVE_STAT
 
