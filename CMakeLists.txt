@@ -61,6 +61,13 @@ if(DEFINED LIB_SUFFIX)
     message(WARNING "LIB_SUFFIX is deprecated.  Use the variables provided by the GNUInstallDirs module instead")
 endif()
 
+if(VITA)
+    SET(LIBTYPE STATIC)
+    SET(ALSOFT_DLOPEN OFF)
+    SET(ALSOFT_UTILS OFF)
+    SET(ALSOFT_TESTS OFF)
+    SET(ALSOFT_EXAMPLES OFF)
+endif()
 
 SET(CPP_DEFS ) # C pre-process, not C++
 SET(INC_PATHS )
@@ -632,9 +639,11 @@ IF(NOT HAVE_WINDOWS_H)
         MESSAGE(FATAL_ERROR "No timing function found!")
     ENDIF()
 
-    CHECK_SYMBOL_EXISTS(nanosleep time.h HAVE_NANOSLEEP)
-    IF(NOT HAVE_NANOSLEEP)
-        MESSAGE(FATAL_ERROR "No sleep function found!")
+    IF(NOT VITA)
+        CHECK_SYMBOL_EXISTS(nanosleep time.h HAVE_NANOSLEEP)
+        IF(NOT HAVE_NANOSLEEP)
+            MESSAGE(FATAL_ERROR "No sleep function found!")
+        ENDIF()
     ENDIF()
 
     # We need pthreads outside of Windows
@@ -1247,6 +1256,20 @@ IF(SDL2_FOUND)
 ENDIF()
 IF(ALSOFT_REQUIRE_SDL2 AND NOT SDL2_FOUND)
     MESSAGE(FATAL_ERROR "Failed to enabled required SDL2 backend")
+ENDIF()
+
+# Check for VITA backend
+IF(VITA)
+    OPTION(ALSOFT_BACKEND_VITA "Enable SDL2 backend" ON)
+    IF(ALSOFT_BACKEND_VITA)
+        SET(HAVE_VITA 1)
+        SET(ALC_OBJS  ${ALC_OBJS} Alc/backends/vita.c)
+        SET(BACKENDS  "${BACKENDS} VITA,")
+        add_definitions("-Dmemcpy=sceClibMemcpy")
+        add_definitions("-Dmemset=sceClibMemset")
+        add_definitions("-Dmemmove=sceClibMemmove")
+        add_definitions("-Dmemcmp=sceClibMemcmp")
+    ENDIF()
 ENDIF()
 
 # Optionally enable the Wave Writer backend
