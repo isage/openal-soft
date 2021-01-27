@@ -102,7 +102,9 @@ DEFINE_PROPERTYKEY(PKEY_AudioEndpoint_GUID, 0x1da5d803, 0xd492, 0x4edd, 0x8c, 0x
 #ifndef _WIN32
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifndef __vita__
 #include <sys/mman.h>
+#endif
 #include <fcntl.h>
 #include <unistd.h>
 #elif defined(_WIN32_IE)
@@ -218,6 +220,9 @@ void FillCPUCaps(int capfilter)
 #endif
 #endif
 #ifdef HAVE_NEON
+#ifdef __vita__
+    caps |= CPU_CAP_NEON;
+#else
     FILE *file = fopen("/proc/cpuinfo", "rt");
     if(!file)
         ERR("Failed to open /proc/cpuinfo, cannot check for NEON support\n");
@@ -262,6 +267,7 @@ void FillCPUCaps(int capfilter)
 
         alstr_reset(&features);
     }
+#endif
 #endif
 
     TRACE("Extensions:%s%s%s%s%s%s\n",
@@ -680,6 +686,11 @@ void UnmapFileMem(const struct FileMapping *mapping)
 
 void GetProcBinary(al_string *path, al_string *fname)
 {
+#ifdef __vita__
+    if(path) alstr_copy_cstr(path, "app0:/");
+    if(fname) alstr_copy_cstr(fname, "eboot.bin");
+
+#else
     char *pathname = NULL;
     size_t pathlen;
 
@@ -770,7 +781,7 @@ void GetProcBinary(al_string *path, al_string *fname)
         if(fname) alstr_copy_cstr(fname, pathname);
     }
     free(pathname);
-
+#endif
     if(path && fname)
         TRACE("Got: %s, %s\n", alstr_get_cstr(*path), alstr_get_cstr(*fname));
     else if(path) TRACE("Got path: %s\n", alstr_get_cstr(*path));
@@ -871,6 +882,10 @@ vector_al_string SearchDataFiles(const char *ext, const char *subdir)
     while(ATOMIC_EXCHANGE_SEQ(&search_lock, 1) == 1)
         althrd_yield();
 
+#ifdef __vita__
+    DirectorySearch(subdir, ext, &results);
+#else
+
     if(subdir[0] == '/')
         DirectorySearch(subdir, ext, &results);
     else
@@ -953,7 +968,7 @@ vector_al_string SearchDataFiles(const char *ext, const char *subdir)
 
         alstr_reset(&path);
     }
-
+#endif
     ATOMIC_STORE_SEQ(&search_lock, 0);
 
     return results;
@@ -980,6 +995,10 @@ struct FileMapping MapFileToMem(const char *fname)
         return ret;
     }
 
+#ifdef __vita__
+    ptr = malloc(sbuf.st_size);
+    read(fd, ptr, sbuf.st_size);
+#else
     ptr = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if(ptr == MAP_FAILED)
     {
@@ -987,7 +1006,7 @@ struct FileMapping MapFileToMem(const char *fname)
         close(fd);
         return ret;
     }
-
+#endif
     ret.fd = fd;
     ret.ptr = ptr;
     ret.len = sbuf.st_size;
@@ -996,7 +1015,11 @@ struct FileMapping MapFileToMem(const char *fname)
 
 void UnmapFileMem(const struct FileMapping *mapping)
 {
+#ifdef __vita__
+    free(mapping->ptr);
+#else
     munmap(mapping->ptr, mapping->len);
+#endif
     close(mapping->fd);
 }
 
