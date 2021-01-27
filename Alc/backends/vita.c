@@ -154,7 +154,14 @@ static ALCenum ALCvitaPlayback_open(ALCvitaPlayback *self, const ALCchar *name)
 static ALCboolean ALCvitaPlayback_reset(ALCvitaPlayback *self)
 {
     ALCdevice *device = STATIC_CAST(ALCbackend, self)->mDevice;
+
+    device->Frequency = self->Frequency;
+    device->FmtChans = self->FmtChans;
+    device->FmtType = self->FmtType;
+    device->UpdateSize = self->UpdateSize;
+
     SetDefaultWFXChannelOrder(device);
+
     return ALC_TRUE;
 }
 
