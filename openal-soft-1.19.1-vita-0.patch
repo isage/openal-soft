@@ -651,21 +651,6 @@ index 39b80250..4e0c78eb 100644
  # Optionally enable the Wave Writer backend
  OPTION(ALSOFT_BACKEND_WAVE "Enable Wave Writer backend" ON)
  IF(ALSOFT_BACKEND_WAVE)
-diff --git a/common/almalloc.c b/common/almalloc.c
-index 0d982ca1..f10f403c 100644
---- a/common/almalloc.c
-+++ b/common/almalloc.c
-@@ -26,7 +26,9 @@
- 
- void *al_malloc(size_t alignment, size_t size)
- {
--#if defined(HAVE_ALIGNED_ALLOC)
-+#ifdef __vita__
-+    return memalign(alignment, size);
-+#elif defined(HAVE_ALIGNED_ALLOC)
-     size = (size+(alignment-1))&~(alignment-1);
-     return aligned_alloc(alignment, size);
- #elif defined(HAVE_POSIX_MEMALIGN)
 diff --git a/common/threads.h b/common/threads.h
 index b0bebd8d..26aef7ba 100644
 --- a/common/threads.h
