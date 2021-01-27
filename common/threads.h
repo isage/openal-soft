@@ -2,6 +2,9 @@
 #define AL_THREADS_H
 
 #include <time.h>
+#ifdef __vita__
+#include <psp2/kernel/threadmgr.h>
+#endif
 
 #if defined(__GNUC__) && defined(__i386__)
 /* force_align_arg_pointer is required for proper function arguments aligning
@@ -165,6 +168,13 @@ inline void althrd_yield(void)
 
 inline int althrd_sleep(const struct timespec *ts, struct timespec *rem)
 {
+#ifdef __vita__
+    if(sceKernelDelayThread(ts->tv_sec * 1000000 + ts->tv_nsec / 1000) != 0)
+    {
+        return -2;
+    }
+    return 0;
+#else
     int ret = nanosleep(ts, rem);
     if(ret != 0)
     {
@@ -172,6 +182,7 @@ inline int althrd_sleep(const struct timespec *ts, struct timespec *rem)
         errno = 0;
     }
     return ret;
+#endif
 }
 
 
