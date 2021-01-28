@@ -155,10 +155,28 @@ static ALCboolean ALCvitaPlayback_reset(ALCvitaPlayback *self)
 {
     ALCdevice *device = STATIC_CAST(ALCbackend, self)->mDevice;
 
-    device->Frequency = self->Frequency;
-    device->FmtChans = self->FmtChans;
-    device->FmtType = self->FmtType;
-    device->UpdateSize = self->UpdateSize;
+    if (device->FmtChans != DevFmtMono && device->FmtChans != DevFmtStereo)
+        device->FmtChans = DevFmtStereo;
+
+    sceAudioOutSetConfig(
+        self->portNumber,
+        device->UpdateSize,
+        device->Frequency,
+        device->FmtChans == DevFmtStereo ? SCE_AUDIO_OUT_MODE_STEREO : SCE_AUDIO_OUT_MODE_MONO
+    );
+
+    self->frameSize = FrameSizeFromDevFmt(device->FmtChans, device->FmtType, device->AmbiOrder);
+    self->Frequency = device->Frequency;
+    self->FmtChans = device->FmtChans;
+    self->FmtType = device->FmtType;
+    self->UpdateSize = device->UpdateSize;
+
+    if (self->waveBuffer)
+    {
+        free(self->waveBuffer);
+    }
+
+    self->waveBuffer = calloc(device->UpdateSize * self->frameSize, 1);
 
     SetDefaultWFXChannelOrder(device);
 
