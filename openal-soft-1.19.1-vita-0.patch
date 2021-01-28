@@ -60,10 +60,10 @@ index 03db56e9..74b75c45 100644
  ALCbackendFactory *ALCsdl2BackendFactory_getFactory(void);
 diff --git a/Alc/backends/vita.c b/Alc/backends/vita.c
 new file mode 100644
-index 00000000..916fffa3
+index 00000000..625b0fe2
 --- /dev/null
 +++ b/Alc/backends/vita.c
-@@ -0,0 +1,411 @@
+@@ -0,0 +1,436 @@
 +/**
 + * OpenAL cross platform audio library
 + * Copyright (C) 2018 by authors.
@@ -220,7 +220,32 @@ index 00000000..916fffa3
 +static ALCboolean ALCvitaPlayback_reset(ALCvitaPlayback *self)
 +{
 +    ALCdevice *device = STATIC_CAST(ALCbackend, self)->mDevice;
++
++    if (device->FmtChans != DevFmtMono && device->FmtChans != DevFmtStereo)
++        device->FmtChans = DevFmtStereo;
++
++    sceAudioOutSetConfig(
++        self->portNumber,
++        device->UpdateSize,
++        device->Frequency,
++        device->FmtChans == DevFmtStereo ? SCE_AUDIO_OUT_MODE_STEREO : SCE_AUDIO_OUT_MODE_MONO
++    );
++
++    self->frameSize = FrameSizeFromDevFmt(device->FmtChans, device->FmtType, device->AmbiOrder);
++    self->Frequency = device->Frequency;
++    self->FmtChans = device->FmtChans;
++    self->FmtType = device->FmtType;
++    self->UpdateSize = device->UpdateSize;
++
++    if (self->waveBuffer)
++    {
++        free(self->waveBuffer);
++    }
++
++    self->waveBuffer = calloc(device->UpdateSize * self->frameSize, 1);
++
 +    SetDefaultWFXChannelOrder(device);
++
 +    return ALC_TRUE;
 +}
 +
