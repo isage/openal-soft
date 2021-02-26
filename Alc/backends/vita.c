@@ -31,6 +31,8 @@
 
 #include "backends/base.h"
 
+#define AUDIO_SAMPLE_ALIGN(s)   (((s) + 63) & ~63)
+
 static const ALCchar playbackDeviceName[] = "PS Vita Speakers/Headphones";
 static const ALCchar captureDeviceName[] = "PS Vita Microphone";
 
@@ -73,6 +75,8 @@ static void ALCvitaPlayback_Construct(ALCvitaPlayback *self, ALCdevice *device)
 {
     ALCbackend_Construct(STATIC_CAST(ALCbackend, self), device);
     SET_VTABLE2(ALCvitaPlayback, ALCbackend, self);
+
+    device->UpdateSize = AUDIO_SAMPLE_ALIGN(device->UpdateSize);
 
     self->portNumber = 0;
     self->frameSize = FrameSizeFromDevFmt(device->FmtChans, device->FmtType, device->AmbiOrder);
@@ -126,7 +130,7 @@ static ALCenum ALCvitaPlayback_open(ALCvitaPlayback *self, const ALCchar *name)
     if (device->FmtChans != DevFmtMono && device->FmtChans != DevFmtStereo)
         device->FmtChans = DevFmtStereo;
 
-    /* TODO: Validate samplerate and update size */
+    device->UpdateSize = AUDIO_SAMPLE_ALIGN(device->UpdateSize);
 
     self->portNumber = sceAudioOutOpenPort(
         SCE_AUDIO_OUT_PORT_TYPE_BGM,
@@ -137,6 +141,7 @@ static ALCenum ALCvitaPlayback_open(ALCvitaPlayback *self, const ALCchar *name)
 
     if (self->portNumber < 0)
         return ALC_INVALID_VALUE;
+
 
     self->frameSize = FrameSizeFromDevFmt(device->FmtChans, device->FmtType, device->AmbiOrder);
     self->Frequency = device->Frequency;
@@ -157,6 +162,8 @@ static ALCboolean ALCvitaPlayback_reset(ALCvitaPlayback *self)
 
     if (device->FmtChans != DevFmtMono && device->FmtChans != DevFmtStereo)
         device->FmtChans = DevFmtStereo;
+
+    device->UpdateSize = AUDIO_SAMPLE_ALIGN(device->UpdateSize);
 
     sceAudioOutSetConfig(
         self->portNumber,
