@@ -169,6 +169,7 @@ inline void althrd_yield(void)
 inline int althrd_sleep(const struct timespec *ts, struct timespec *rem)
 {
 #ifdef __vita__
+    (void)rem; // unused
     if(sceKernelDelayThread(ts->tv_sec * 1000000 + ts->tv_nsec / 1000) != 0)
     {
         return -2;
