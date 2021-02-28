@@ -1260,7 +1260,7 @@ ENDIF()
 
 # Check for VITA backend
 IF(VITA)
-    OPTION(ALSOFT_BACKEND_VITA "Enable SDL2 backend" ON)
+    OPTION(ALSOFT_BACKEND_VITA "Enable VITA backend" ON)
     IF(ALSOFT_BACKEND_VITA)
         SET(HAVE_VITA 1)
         SET(ALC_OBJS  ${ALC_OBJS} Alc/backends/vita.c)
