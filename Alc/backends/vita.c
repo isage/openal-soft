@@ -44,7 +44,7 @@ typedef struct ALCvitaPlayback
     DERIVE_FROM_TYPE(ALCbackend);
 
     ATOMIC(int) killNow;
-    althrd_t thread;
+    SceUID thread;
     SceKernelLwMutexWork lock;
 
     int portNumber;
@@ -115,9 +115,10 @@ static void ALCvitaPlayback_Destruct(ALCvitaPlayback *self)
     ALCbackend_Destruct(STATIC_CAST(ALCbackend, self));
 }
 
-static int ALCvitaPlayback_MixerProc(void *ptr)
+static int ALCvitaPlayback_MixerProc(SceSize args, void *argp)
 {
-    ALCvitaPlayback *self = (ALCvitaPlayback*)ptr;
+    (void)args;
+    ALCvitaPlayback *self = *(ALCvitaPlayback **) argp;
     ALCdevice *device = STATIC_CAST(ALCbackend, self)->mDevice;
 
     while (!ATOMIC_LOAD(&self->killNow, almemory_order_acquire))
@@ -205,7 +206,23 @@ static ALCboolean ALCvitaPlayback_reset(ALCvitaPlayback *self)
 static ALCboolean ALCvitaPlayback_start(ALCvitaPlayback *self)
 {
     ATOMIC_STORE(&self->killNow, AL_FALSE, almemory_order_release);
-    if (althrd_create(&self->thread, ALCvitaPlayback_MixerProc, self) != althrd_success)
+    SceKernelThreadInfo info;
+
+    int priority = 32;
+
+    info.size = sizeof(SceKernelThreadInfo);
+    if (sceKernelGetThreadInfo(sceKernelGetThreadId(), &info) == 0) {
+        priority = info.currentPriority;
+    }
+
+    self->thread = sceKernelCreateThread("OpenAL Vita playback thread", ALCvitaPlayback_MixerProc,
+                           priority - 1, 0x10000, 0, 0, NULL);
+
+    if (self->thread < 0)
+        return ALC_FALSE;
+
+    int ret = sceKernelStartThread(self->thread, 4, &self);
+    if (ret < 0)
         return ALC_FALSE;
 
     return ALC_TRUE;
@@ -213,12 +230,11 @@ static ALCboolean ALCvitaPlayback_start(ALCvitaPlayback *self)
 
 static void ALCvitaPlayback_stop(ALCvitaPlayback *self)
 {
-    int res;
-
     if (ATOMIC_EXCHANGE(&self->killNow, AL_TRUE, almemory_order_acq_rel))
         return;
 
-    althrd_join(self->thread, &res);
+    sceKernelWaitThreadEnd(self->thread, NULL, NULL);
+    sceKernelDeleteThread(self->thread);
 }
 
 static void ALCvitaPlayback_lock(ALCvitaPlayback *self)
