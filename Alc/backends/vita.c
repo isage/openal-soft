@@ -45,6 +45,7 @@ typedef struct ALCvitaPlayback
 
     ATOMIC(int) killNow;
     althrd_t thread;
+    SceKernelLwMutexWork lock;
 
     int portNumber;
     ALsizei frameSize;
@@ -62,11 +63,12 @@ static ALCenum ALCvitaPlayback_open(ALCvitaPlayback *self, const ALCchar *name);
 static ALCboolean ALCvitaPlayback_reset(ALCvitaPlayback *self);
 static ALCboolean ALCvitaPlayback_start(ALCvitaPlayback *self);
 static void ALCvitaPlayback_stop(ALCvitaPlayback *self);
+static void ALCvitaPlayback_lock(ALCvitaPlayback *self);
+static void ALCvitaPlayback_unlock(ALCvitaPlayback *self);
+
 static DECLARE_FORWARD2(ALCvitaPlayback, ALCbackend, ALCenum, captureSamples, void*, ALCuint)
 static DECLARE_FORWARD(ALCvitaPlayback, ALCbackend, ALCuint, availableSamples)
 static DECLARE_FORWARD(ALCvitaPlayback, ALCbackend, ClockLatency, getClockLatency)
-static DECLARE_FORWARD(ALCvitaPlayback, ALCbackend, void, lock)
-static DECLARE_FORWARD(ALCvitaPlayback, ALCbackend, void, unlock)
 DECLARE_DEFAULT_ALLOCATORS(ALCvitaPlayback)
 
 DEFINE_ALCBACKEND_VTABLE(ALCvitaPlayback);
@@ -84,6 +86,14 @@ static void ALCvitaPlayback_Construct(ALCvitaPlayback *self, ALCdevice *device)
     self->FmtChans = device->FmtChans;
     self->FmtType = device->FmtType;
     self->UpdateSize = device->UpdateSize;
+
+    sceKernelCreateLwMutex(
+        &self->lock,
+        "OpenAL Vita playback mutex",
+        SCE_KERNEL_MUTEX_ATTR_RECURSIVE, // No SCE_KERNEL_LW_MUTEX_ATTR_RECURSIVE in VitaSDK, but it's the same
+        0,
+        NULL
+    );
 }
 
 static void ALCvitaPlayback_Destruct(ALCvitaPlayback *self)
@@ -99,6 +109,8 @@ static void ALCvitaPlayback_Destruct(ALCvitaPlayback *self)
         free(self->waveBuffer);
         self->waveBuffer = NULL;
     }
+
+    sceKernelDeleteLwMutex(&self->lock);
 
     ALCbackend_Destruct(STATIC_CAST(ALCbackend, self));
 }
@@ -209,6 +221,16 @@ static void ALCvitaPlayback_stop(ALCvitaPlayback *self)
     althrd_join(self->thread, &res);
 }
 
+static void ALCvitaPlayback_lock(ALCvitaPlayback *self)
+{
+    sceKernelLockLwMutex(&self->lock, 1, NULL);
+}
+
+static void ALCvitaPlayback_unlock(ALCvitaPlayback *self)
+{
+    sceKernelUnlockLwMutex(&self->lock, 1);
+}
+
 // -----------------------------------------------------------------------------
 // Capture
 // -----------------------------------------------------------------------------
@@ -218,6 +240,7 @@ typedef struct ALCvitaCapture
 
     ATOMIC(int) killNow;
     althrd_t thread;
+    SceKernelLwMutexWork lock;
 
     int portNumber;
     ALsizei frameSize;
@@ -235,11 +258,11 @@ static ALCenum ALCvitaCapture_open(ALCvitaCapture *self, const ALCchar *name);
 static ALCboolean ALCvitaCapture_reset(ALCvitaCapture *self);
 static ALCboolean ALCvitaCapture_start(ALCvitaCapture *self);
 static void ALCvitaCapture_stop(ALCvitaCapture *self);
+static void ALCvitaCapture_lock(ALCvitaCapture *self);
+static void ALCvitaCapture_unlock(ALCvitaCapture *self);
 static ALCenum ALCvitaCapture_captureSamples(ALCvitaCapture *self, ALCvoid *buffer, ALCuint samples);
 static ALCuint ALCvitaCapture_availableSamples(ALCvitaCapture *self);
 static DECLARE_FORWARD(ALCvitaCapture, ALCbackend, ClockLatency, getClockLatency)
-static DECLARE_FORWARD(ALCvitaCapture, ALCbackend, void, lock)
-static DECLARE_FORWARD(ALCvitaCapture, ALCbackend, void, unlock)
 DECLARE_DEFAULT_ALLOCATORS(ALCvitaCapture)
 
 DEFINE_ALCBACKEND_VTABLE(ALCvitaCapture);
@@ -358,6 +381,17 @@ static void ALCvitaCapture_stop(ALCvitaCapture *self)
     althrd_join(self->thread, &res);
 }
 
+static void ALCvitaCapture_lock(ALCvitaCapture *self)
+{
+    sceKernelLockLwMutex(&self->lock, 1, NULL);
+}
+
+static void ALCvitaCapture_unlock(ALCvitaCapture *self)
+{
+    sceKernelUnlockLwMutex(&self->lock, 1);
+}
+
+
 static ALCuint ALCvitaCapture_availableSamples(ALCvitaCapture *self)
 {
     return ll_ringbuffer_read_space(self->ring);
@@ -368,6 +402,10 @@ static ALCenum ALCvitaCapture_captureSamples(ALCvitaCapture *self, ALCvoid *buff
     ll_ringbuffer_read(self->ring, buffer, samples);
     return ALC_NO_ERROR;
 }
+
+// -----------------------------------------------------------------------------
+// Backends
+// -----------------------------------------------------------------------------
 
 typedef struct ALCvitaBackendFactory {
     DERIVE_FROM_TYPE(ALCbackendFactory);
