@@ -36,6 +36,9 @@
 static const ALCchar playbackDeviceName[] = "PS Vita Speakers/Headphones";
 static const ALCchar captureDeviceName[] = "PS Vita Microphone";
 
+extern unsigned int _oal_thread_priority __attribute__((weak));
+extern unsigned int _oal_thread_affinity __attribute__((weak));
+
 // -----------------------------------------------------------------------------
 // Playback
 // -----------------------------------------------------------------------------
@@ -206,17 +209,27 @@ static ALCboolean ALCvitaPlayback_reset(ALCvitaPlayback *self)
 static ALCboolean ALCvitaPlayback_start(ALCvitaPlayback *self)
 {
     ATOMIC_STORE(&self->killNow, AL_FALSE, almemory_order_release);
-    SceKernelThreadInfo info;
 
     int priority = 32;
+    int affinity = 0; // DEFAULT
+    int stack_size = 0x10000; // 64Kib
 
-    info.size = sizeof(SceKernelThreadInfo);
-    if (sceKernelGetThreadInfo(sceKernelGetThreadId(), &info) == 0) {
-        priority = info.currentPriority;
+    if (&_oal_thread_priority != NULL) {
+        priority = _oal_thread_priority;
+    } else {
+        SceKernelThreadInfo info;
+        info.size = sizeof(SceKernelThreadInfo);
+        if (sceKernelGetThreadInfo(sceKernelGetThreadId(), &info) == 0) {
+            priority = info.currentPriority - 1;
+        }
+    }
+
+    if (&_oal_thread_affinity != NULL) {
+        affinity = _oal_thread_affinity;
     }
 
     self->thread = sceKernelCreateThread("OpenAL Vita playback thread", ALCvitaPlayback_MixerProc,
-                           priority - 1, 0x10000, 0, 0, NULL);
+                           priority, stack_size, 0, affinity, NULL);
 
     if (self->thread < 0)
         return ALC_FALSE;
