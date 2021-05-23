@@ -210,7 +210,7 @@ static ALCboolean ALCvitaPlayback_start(ALCvitaPlayback *self)
 {
     ATOMIC_STORE(&self->killNow, AL_FALSE, almemory_order_release);
 
-    int priority = 32;
+    int priority = 128; // middle
     int affinity = 0; // DEFAULT
     int stack_size = 0x10000; // 64Kib
 
@@ -223,6 +223,9 @@ static ALCboolean ALCvitaPlayback_start(ALCvitaPlayback *self)
             priority = info.currentPriority - 1;
         }
     }
+
+    if (priority < 64 && priority != 0) priority = 64;
+    if (priority > 191) priority = 191;
 
     if (&_oal_thread_affinity != NULL) {
         affinity = _oal_thread_affinity;
