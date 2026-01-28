@@ -812,3 +812,13 @@ index 9cc6c16b..9799bf85 100644
  /* Define if we have the stat function */
  #cmakedefine HAVE_STAT
  
+diff --git a/native-tools/CMakeLists.txt b/native-tools/CMakeLists.txt
+index 5e816bba..e2db9067 100644
+--- a/native-tools/CMakeLists.txt
++++ b/native-tools/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.0.2)
++cmake_minimum_required(VERSION 3.5)
+ 
+ project(native-tools)
+ 
