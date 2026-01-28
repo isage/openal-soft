@@ -60,10 +60,10 @@ index 03db56e9..74b75c45 100644
  ALCbackendFactory *ALCsdl2BackendFactory_getFactory(void);
 diff --git a/Alc/backends/vita.c b/Alc/backends/vita.c
 new file mode 100644
-index 00000000..f29d865d
+index 00000000..f7c5d262
 --- /dev/null
 +++ b/Alc/backends/vita.c
-@@ -0,0 +1,497 @@
+@@ -0,0 +1,513 @@
 +/**
 + * OpenAL cross platform audio library
 + * Copyright (C) 2018 by authors.
@@ -101,6 +101,9 @@ index 00000000..f29d865d
 +
 +static const ALCchar playbackDeviceName[] = "PS Vita Speakers/Headphones";
 +static const ALCchar captureDeviceName[] = "PS Vita Microphone";
++
++extern unsigned int _oal_thread_priority __attribute__((weak));
++extern unsigned int _oal_thread_affinity __attribute__((weak));
 +
 +// -----------------------------------------------------------------------------
 +// Playback
@@ -272,17 +275,30 @@ index 00000000..f29d865d
 +static ALCboolean ALCvitaPlayback_start(ALCvitaPlayback *self)
 +{
 +    ATOMIC_STORE(&self->killNow, AL_FALSE, almemory_order_release);
-+    SceKernelThreadInfo info;
 +
-+    int priority = 32;
++    int priority = 128; // middle
++    int affinity = 0; // DEFAULT
++    int stack_size = 0x10000; // 64Kib
 +
-+    info.size = sizeof(SceKernelThreadInfo);
-+    if (sceKernelGetThreadInfo(sceKernelGetThreadId(), &info) == 0) {
-+        priority = info.currentPriority;
++    if (&_oal_thread_priority != NULL) {
++        priority = _oal_thread_priority;
++    } else {
++        SceKernelThreadInfo info;
++        info.size = sizeof(SceKernelThreadInfo);
++        if (sceKernelGetThreadInfo(sceKernelGetThreadId(), &info) == 0) {
++            priority = info.currentPriority - 1;
++        }
++    }
++
++    if (priority < 64 && priority != 0) priority = 64;
++    if (priority > 191) priority = 191;
++
++    if (&_oal_thread_affinity != NULL) {
++        affinity = _oal_thread_affinity;
 +    }
 +
 +    self->thread = sceKernelCreateThread("OpenAL Vita playback thread", ALCvitaPlayback_MixerProc,
-+                           priority - 1, 0x10000, 0, 0, NULL);
++                           priority, stack_size, 0, affinity, NULL);
 +
 +    if (self->thread < 0)
 +        return ALC_FALSE;
@@ -684,9 +700,17 @@ index d2cb6253..1815dcfc 100644
  }
  
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 39b80250..e4c3e7a0 100644
+index 39b80250..c8a2525b 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
+@@ -1,6 +1,6 @@
+ # CMake build file list for OpenAL
+ 
+-CMAKE_MINIMUM_REQUIRED(VERSION 3.0.2)
++CMAKE_MINIMUM_REQUIRED(VERSION 3.5)
+ 
+ PROJECT(OpenAL)
+ 
 @@ -61,6 +61,13 @@ if(DEFINED LIB_SUFFIX)
      message(WARNING "LIB_SUFFIX is deprecated.  Use the variables provided by the GNUInstallDirs module instead")
  endif()
